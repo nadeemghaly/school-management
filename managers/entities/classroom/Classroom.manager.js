@@ -14,8 +14,9 @@ module.exports = class Classroom {
         const classroom = { name, school: schoolId };
 
         // Data validation
-        let result = await this.validators.Classroom.createClassroom(classroom);
-        if (result) return result;
+        let validationResult = await this.validators.Classroom.createClassroom(classroom);
+        if (validationResult)
+ return { code: 400, error: validationResult};
 
         // Check if the school exists
         let schoolInDb = await this.mongomodels.School.findById(schoolId);
@@ -49,8 +50,9 @@ module.exports = class Classroom {
         if (schoolId) updateFields.school = schoolId;
 
         // Data validation
-        let result = await this.validators.Classroom.updateClassroom(updateFields);
-        if (result) return result;
+        let validationResult = await this.validators.Classroom.updateClassroom(updateFields);
+        if (validationResult)
+ return { code: 400, error: validationResult};
 
         // Check if the classroom and school exists
         let [classroomInDb, schoolInDb] = await Promise.all([
@@ -75,7 +77,7 @@ module.exports = class Classroom {
 
         // Validate input
         let validationResult = await this.validators.Classroom.getClassroom({ id, name });
-        if (validationResult) return validationResult;
+        if (validationResult) return { code: 400, error: validationResult};
 
         let classroom;
         if (id) {
@@ -112,7 +114,7 @@ module.exports = class Classroom {
         };
     }
 
-    async getAllClassrooms({ __token }) {
+    async getAllClassrooms({ __token, __isSuperAdmin }) {
         try {
             // Fetch all classrooms
             const classrooms = await this.mongomodels.Classroom.find().populate({
@@ -139,7 +141,7 @@ module.exports = class Classroom {
         const name = __query.name;
 
         let validationResult = await this.validators.Classroom.deleteClassroom({ id, name });
-        if (validationResult) return validationResult;
+        if (validationResult) return { code: 400, error: validationResult};
 
         let deletionResult;
         if (id) {

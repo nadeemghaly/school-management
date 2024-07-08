@@ -12,8 +12,9 @@ module.exports = class School {
     async createSchool({ __token, __isSuperAdmin, adminEmail, name, address, mobileNumber }) {
         const school = { name, address, mobileNumber };
         // Data validation
-        let result = await this.validators.School.createSchool(school);
-        if (result) return result;
+        let validationResult = await this.validators.School.createSchool(school);
+        if (validationResult)
+            return { code: 400, error: validationResult};
 
         let [schoolInDb, adminInDb] = await Promise.all([this.mongomodels.School.findOne({ name }), this.mongomodels.User.findOne({ email: adminEmail })]);
         if (schoolInDb) return { code: 409, error: "A school with this name already exists" }
@@ -33,7 +34,7 @@ module.exports = class School {
     async updateSchool({ __token, __query, name, address, mobileNumber }) {
 
         const id = __query.id
-        if(!id) return { code: 400, error: "Id must be provided" }
+        if (!id) return { code: 400, error: "Id must be provided" }
 
         // Create the update object
         const updateFields = {};
@@ -42,13 +43,14 @@ module.exports = class School {
         if (mobileNumber) updateFields.mobileNumber = mobileNumber;
 
         // Data validation
-        let result = await this.validators.School.updateSchool(updateFields);
-        if (result) return result;
-        
+        let validationResult = await this.validators.School.updateSchool(updateFields);
+        if (validationResult)
+            return { code: 400, error: validationResult};
+
         // Check if the school exists
         let schoolInDb = await this.mongomodels.School.findById(id);
         if (!schoolInDb) return { code: 404, error: "School not found" };
-        else if(schoolInDb.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
+        else if (schoolInDb.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
 
 
         // Update Logic
@@ -65,7 +67,7 @@ module.exports = class School {
         const name = __query.name
         // Validate input
         let validationResult = await this.validators.School.getSchool({ id, name });
-        if (validationResult) return validationResult;
+        if (validationResult) return { code: 400, error: validationResult};
 
         let school;
         if (id) {
@@ -75,7 +77,7 @@ module.exports = class School {
         } else if (name) {
             // Find by name case insensitive
             school = await this.mongomodels.School.findOne({
-                name: { $regex: new RegExp(`^${name}$`, 'i')}
+                name: { $regex: new RegExp(`^${name}$`, 'i') }
             }).populate('admin', 'name email');
             if (!school) return { code: 404, error: "School not found" };
         } else {
@@ -88,7 +90,7 @@ module.exports = class School {
         };
     }
 
-    async getAllSchools({ __token }) {
+    async getAllSchools({ __token, __isSuperAdmin }) {
         try {
             // Fetch all schools
             const schools = await this.mongomodels.School.find().populate('admin', 'name email');;
@@ -113,14 +115,14 @@ module.exports = class School {
             // Find and delete by ID
             const school = await this.mongomodels.School.findById(id);
             if (!school) return { code: 404, error: "School not found" };
-            else if(school.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
+            else if (school.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
 
             deletionResult = await this.mongomodels.School.findByIdAndDelete(id);
         } else if (name) {
             // Find and delete by name
             const school = await this.mongomodels.School.findOne({ name });
             if (!school) return { code: 404, error: "School not found" };
-            else if(school.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
+            else if (school.admin.toString() !== __token._id.toString()) return { code: 403, error: "Forbidden, you are not the school admin" };
 
             deletionResult = await this.mongomodels.School.deleteOne({ name });
         } else {

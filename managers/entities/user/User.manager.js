@@ -14,8 +14,8 @@ module.exports = class User {
         const user = {name, email, password, userType};
 
         // Data validation
-        let result = await this.validators.User.createUser(user);
-        if(result) return result;
+        let validationResult = await this.validators.User.createUser(user);
+        if(validationResult) return { code: 400, error: validationResult};
         
         let userInDB        = await this.mongomodels.User.findOne({email});
         if(userInDB) return {code: 409, error: "Email already in use"}
@@ -31,8 +31,8 @@ module.exports = class User {
     async login({email, password}) {
         const loginCredentials = {email, password};
 
-        let result = await this.validators.User.login(loginCredentials);
-        if(result) return result;
+        let validationResult = await this.validators.User.login(loginCredentials);
+        if(validationResult) return { code: 400, error: validationResult};
 
         let userInDB        = await this.mongomodels.User.findOne({email, password});
         if(!userInDB) return {code: 401, error: "Incorrect username or password"}

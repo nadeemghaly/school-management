@@ -10,12 +10,13 @@ module.exports = class Student {
         this.httpExposed = ['post=createStudent', 'put=updateStudent', 'delete=deleteStudent', 'get=getStudent', 'get=getAllStudents'];
     }
 
-    async createStudent({ __token, classroomId, name, email,  age }) {
+    async createStudent({ __token, classroomId, name, email, age }) {
         const student = { name, age, email, classroom: classroomId };
 
         // Data validation
-        let result = await this.validators.Student.createStudent(student);
-        if (result) return result;
+        let validationResult = await this.validators.Student.createStudent(student);
+        if (validationResult)
+            return { code: 400, error: validationResult };
 
         // Check if the student email already exists
         let studentInDb = await this.mongomodels.Student.findOne({ email });
@@ -34,11 +35,11 @@ module.exports = class Student {
         // Creation Logic
         let createdStudent = await this.mongomodels.Student.create(student);
         await this.mongomodels.Classroom.findByIdAndUpdate(
-            classroomId, 
-            { $push: { students: createdStudent._id } }, 
+            classroomId,
+            { $push: { students: createdStudent._id } },
             { new: true, useFindAndModify: false }
         );
-        
+
 
         // Response
         return {
@@ -51,15 +52,16 @@ module.exports = class Student {
         if (!id) return { code: 400, error: "Id must be provided" };
 
         // Create the update object
-        const updateFields = {};
+        const updateFields = {id};
         if (name) updateFields.name = name;
         if (email) updateFields.email = email;
         if (age) updateFields.age = age;
         if (classroomId) updateFields.classroom = classroomId;
 
         // Data validation
-        let result = await this.validators.Student.updateStudent(updateFields);
-        if (result) return result;
+        let validationResult = await this.validators.Student.updateStudent(updateFields);
+        if (validationResult)
+            return { code: 400, error: validationResult };
 
         // Check if the student exists
         let studentInDb = await this.mongomodels.Student.findById(id);
@@ -93,7 +95,7 @@ module.exports = class Student {
 
         // Validate input
         let validationResult = await this.validators.Student.getStudent({ id, email });
-        if (validationResult) return validationResult;
+        if (validationResult) return { code: 400, error: validationResult };
 
         let student;
         if (id) {
@@ -103,7 +105,7 @@ module.exports = class Student {
         } else if (email) {
             // Find by email case insensitive
             student = await this.mongomodels.Student.findOne({
-                email: { $regex: new RegExp(`^${email}$`, 'i')}
+                email: { $regex: new RegExp(`^${email}$`, 'i') }
             }).populate('classroom', 'name school');
             if (!student) return { code: 404, error: "Student not found" };
         } else {
@@ -116,19 +118,19 @@ module.exports = class Student {
         };
     }
 
-    async getAllStudents({ __token }) {
+    async getAllStudents({ __token, __isSuperAdmin }) {
         try {
             // Fetch all students
             const students = await this.mongomodels.Student
-            .find()
-            .populate({
-                path: 'classroom',
-                select: 'name school',  // Include 'name' and 'school' fields from the 'classroom' document
-                populate: {
-                    path: 'school',
-                    select: 'name'  // Include only the 'name' field from the 'school' document
-                }
-            });
+                .find()
+                .populate({
+                    path: 'classroom',
+                    select: 'name school',  // Include 'name' and 'school' fields from the 'classroom' document
+                    populate: {
+                        path: 'school',
+                        select: 'name'  // Include only the 'name' field from the 'school' document
+                    }
+                });
             // Response
             return {
                 data: students,

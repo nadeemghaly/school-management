@@ -22,6 +22,11 @@ module.exports = {
     ],
     updateStudent: [
         {
+            model: 'id',
+            regex: '^[a-f0-9]{24}$',
+            error: "Invalid student ID"
+        },
+        {
             model: 'name',
             length: { min: 1, max: 100 }
         },

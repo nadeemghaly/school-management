@@ -7,7 +7,7 @@ const ValidatorsLoader      = require('./ValidatorsLoader');
 const ResourceMeshLoader    = require('./ResourceMeshLoader');
 const utils                 = require('../libs/utils');
 
-const TokenManager          = require('../managers/token/Token.manager');
+const TokenManager          = require('../managers/entities/token/Token.manager');
 const User = require('../managers/entities/user/User.manager');
 const School = require('../managers/entities/school/School.manager');
 const Classroom = require('../managers/entities/classroom/Classroom.manager');
