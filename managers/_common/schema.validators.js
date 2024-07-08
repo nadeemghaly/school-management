@@ -1,5 +1,5 @@
 module.exports = {
-    'username': (data)=>{
+    'name': (data)=>{
         if(data.trim().length < 3){
             return false;
         }

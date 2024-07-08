@@ -1,31 +1,47 @@
 module.exports = class User { 
 
-    constructor({utils, cache, config, cortex, managers, validators, mongomodels }={}){
+    constructor({ config, cortex, managers, validators, mongomodels }={}){
         this.config              = config;
         this.cortex              = cortex;
         this.validators          = validators; 
         this.mongomodels         = mongomodels;
         this.tokenManager        = managers.token;
         this.usersCollection     = "users";
-        this.userExposed         = ['createUser'];
+        this.httpExposed         = ['post=signup','post=login'];
     }
 
-    async createUser({username, email, password}){
-        const user = {username, email, password};
+    async signup({name, email, password, userType}) {
+        const user = {name, email, password, userType};
 
         // Data validation
-        let result = await this.validators.user.createUser(user);
+        let result = await this.validators.User.createUser(user);
         if(result) return result;
         
+        let userInDB        = await this.mongomodels.User.findOne({email});
+        if(userInDB) return {code: 409, error: "Email already in use"}
+        
         // Creation Logic
-        let createdUser     = {username, email, password}
-        let longToken       = this.tokenManager.genLongToken({userId: createdUser._id, userKey: createdUser.key });
+        let createdUser     = await this.mongomodels.User.create(user);
+
+        // Response
+        return {
+            createdUser
+        };
+    }
+    async login({email, password}) {
+        const loginCredentials = {email, password};
+
+        let result = await this.validators.User.login(loginCredentials);
+        if(result) return result;
+
+        let userInDB        = await this.mongomodels.User.findOne({email, password});
+        if(!userInDB) return {code: 401, error: "Incorrect username or password"}
+        
+        let longToken       = this.tokenManager.genLongToken({userId: userInDB._id, email: userInDB.email});
         
         // Response
         return {
-            user: createdUser, 
-            longToken 
+            token: longToken
         };
     }
-
 }

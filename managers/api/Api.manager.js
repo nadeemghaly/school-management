@@ -32,7 +32,8 @@ module.exports = class ApiHandler {
             if(this.managers[mk][this.prop]){
                 // console.log('managers - mk ', this.managers[mk])
                 this.methodMatrix[mk]={};
-                // console.log(`## ${mk}`);
+                console.log();
+                console.log(`## ${mk}`);
                 this.managers[mk][this.prop].forEach(i=>{
                     /** creating the method matrix */
                     let method = 'post';
@@ -73,12 +74,12 @@ module.exports = class ApiHandler {
                         }
                     })
                     
-                    // console.log(`* ${i} :`, 'args=', params);
+                    console.log(`* ${i} :`, 'args=', params);
 
                 });
             }
         });
-
+        console.log()
         /** expose apis through cortex */
         Object.keys(this.managers).forEach(mk=>{
             if(this.managers[mk].interceptor){
@@ -143,7 +144,6 @@ module.exports = class ApiHandler {
         }
 
         // console.log(`${moduleName}.${fnName}`);
-
         let targetStack = this.mwsStack[`${moduleName}.${fnName}`];
 
         let hotBolt = this.mwsExec.createBolt({stack: targetStack, req, res, onDone: async ({req, res, results})=>{
@@ -165,7 +165,7 @@ module.exports = class ApiHandler {
                 if(result.errors){
                     return this.managers.responseDispatcher.dispatch(res, {ok: false, errors: result.errors});
                 } else if(result.error){
-                    return this.managers.responseDispatcher.dispatch(res, {ok: false, message: result.error});
+                    return this.managers.responseDispatcher.dispatch(res, {ok: false, code:result.code, message: result.error});
                 } else {
                     return this.managers.responseDispatcher.dispatch(res, {ok:true, data: result});
                 }
