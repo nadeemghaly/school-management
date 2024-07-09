@@ -36,7 +36,7 @@ module.exports = class UserServer {
         const swaggerMiddleware = (req, res, next) => {
             const protocol = req.protocol;
             const host = req.get('host');
-            const url = `${protocol}://${host}/api`;
+            const url = `https://${host}/api`;
         
             req.swaggerOptions = {
                 definition: {
