@@ -60,6 +60,7 @@ module.exports = class User {
         const user = { name, email, password, userType };
 
         // Data validation
+        console.log(this.validators)
         let validationResult = await this.validators.User.createUser(user);
         if (validationResult) return { code: 400, error: validationResult };
 
@@ -116,7 +117,7 @@ module.exports = class User {
  */
     async login({ email, password }) {
     const loginCredentials = { email, password };
-
+    
     let validationResult = await this.validators.User.login(loginCredentials);
     if (validationResult) return { code: 400, error: validationResult };
 
