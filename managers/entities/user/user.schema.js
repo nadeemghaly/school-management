@@ -15,6 +15,8 @@ module.exports = {
         {
             model: 'password',
             required: true,
+            minlength: 6
+            
         },
         {
             model: 'userType',

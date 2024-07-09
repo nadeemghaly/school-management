@@ -16,7 +16,7 @@ module.exports = class Classroom {
         // Data validation
         let validationResult = await this.validators.Classroom.createClassroom(classroom);
         if (validationResult)
- return { code: 400, error: validationResult};
+            return { code: 400, error: validationResult };
 
         // Check if the school exists
         let schoolInDb = await this.mongomodels.School.findById(schoolId);
@@ -33,6 +33,11 @@ module.exports = class Classroom {
 
         // Creation Logic
         let createdClassroom = await this.mongomodels.Classroom.create(classroom);
+        await this.mongomodels.School.findByIdAndUpdate(
+            schoolId,
+            { $push: { classrooms: createdClassroom._id } },
+            { new: true, useFindAndModify: false }
+        );
 
         // Response
         return {
@@ -48,22 +53,49 @@ module.exports = class Classroom {
         const updateFields = {};
         if (name) updateFields.name = name;
         if (schoolId) updateFields.school = schoolId;
+        if (Object.keys(updateFields).length === 0) return { code: 400, error: "No fields provided to update" };
 
         // Data validation
         let validationResult = await this.validators.Classroom.updateClassroom(updateFields);
         if (validationResult)
- return { code: 400, error: validationResult};
+            return { code: 400, error: validationResult };
 
         // Check if the classroom and school exists
         let [classroomInDb, schoolInDb] = await Promise.all([
-            this.mongomodels.Classroom.findById(id),
+            this.mongomodels.Classroom.findById(id).populate('school'),
             this.mongomodels.School.findById(schoolId)
         ])
         if (!classroomInDb) return { code: 404, error: "Classroom not found" };
-        if (!schoolInDb) return { code: 404, error: "School not found" };
+        if (schoolId && !schoolInDb) return { code: 404, error: "School not found" };
+
+        // Check if the current user is the admin of the school
+        if (classroomInDb.school.admin.toString() !== __token._id.toString()) {
+            return { code: 403, error: "Forbidden, you are not the admin of the school that currently contains this classroom" };
+        }
+
+        // Check if the classroom already exists in the new school
+        if (schoolId != classroomInDb.school.toString()) {
+            let name = updateFields.name? updateFields.name : classroomInDb.name;
+            let classroomInDb2 = await this.mongomodels.Classroom.findOne({ name, school: schoolId });
+            if (classroomInDb2 && classroomInDb2._id.toString() !== id) return { code: 409, error: "A classroom in the new school with this name already exists" };
+        }
 
         // Update Logic
         let updatedClassroom = await this.mongomodels.Classroom.findByIdAndUpdate(id, updateFields, { new: true });
+
+        if (schoolId != classroomInDb.school._id.toString()) {
+            await this.mongomodels.School.findByIdAndUpdate(
+                schoolId,
+                { $push: { classrooms: updatedClassroom._id } },
+                { new: true, useFindAndModify: false }
+            );
+            
+            await this.mongomodels.School.findByIdAndUpdate(
+                classroomInDb.school,
+                { $pull: { classrooms: updatedClassroom._id } },
+                { new: true, useFindAndModify: false }
+            );
+        }
 
         // Response
         return {
@@ -72,43 +104,35 @@ module.exports = class Classroom {
     }
 
     async getClassroom({ __token, __query }) {
-        const id = __query.id;
-        const name = __query.name;
+        const classroomId = __query.id;
 
         // Validate input
-        let validationResult = await this.validators.Classroom.getClassroom({ id, name });
-        if (validationResult) return { code: 400, error: validationResult};
+        const validationResult = await this.validators.Classroom.getClassroom({ id: classroomId });
+        if (validationResult) return { code: 400, error: validationResult };
 
         let classroom;
-        if (id) {
+        if (classroomId) {
             // Find by ID
-            classroom = await this.mongomodels.Classroom.findById(id).populate({
-                path: 'school',
-                select: 'name' 
-            }).populate({
-                path: 'students',
-                select: 'name'
-            });
-            
-            if (!classroom) return { code: 404, error: "Classroom not found" };
-        } else if (name) {
-            // Find by name case insensitive
-            classroom = await this.mongomodels.Classroom.findOne({
-                name: { $regex: new RegExp(`^${name}$`, 'i') }
-            }).populate({
-                path: 'school',
-                select: 'name' 
-            }).populate({
-                path: 'students',
-                select: 'name'
-            });
+            classroom = await this.mongomodels.Classroom.findById(classroomId)
+                .populate({
+                    path: 'school',
+                    select: 'name admin',
+                    populate: {
+                        path: 'admin',
+                        select: 'name email'
+                    }
+                })
+                .populate({
+                    path: 'students',
+                    select: 'name'
+                });
 
             if (!classroom) return { code: 404, error: "Classroom not found" };
-        } else {
-            return { code: 400, error: "Either 'id' or 'name' must be provided" };
+            else if (classroom.school.admin._id.toString() !== __token._id.toString()) {
+                return { code: 403, error: "Forbidden, you are not the admin of this school" };
+            }
         }
 
-        // Response
         return {
             classroom
         };
@@ -119,7 +143,7 @@ module.exports = class Classroom {
             // Fetch all classrooms
             const classrooms = await this.mongomodels.Classroom.find().populate({
                 path: 'school',
-                select: 'name' 
+                select: 'name'
             }).populate({
                 path: 'students',
                 select: 'name'
@@ -138,32 +162,29 @@ module.exports = class Classroom {
 
     async deleteClassroom({ __token, __query }) {
         const id = __query.id;
-        const name = __query.name;
 
-        let validationResult = await this.validators.Classroom.deleteClassroom({ id, name });
-        if (validationResult) return { code: 400, error: validationResult};
+        let validationResult = await this.validators.Classroom.deleteClassroom({ id });
+        if (validationResult) return { code: 400, error: validationResult };
 
-        let deletionResult;
         if (id) {
             // Find and delete by ID
             const classroom = await this.mongomodels.Classroom.findById(id);
             if (!classroom) return { code: 404, error: "Classroom not found" };
+            if (classroom.students.length > 0) return { code: 409, error: "Classroom has students, cannot be deleted, delete students first" };
 
-            deletionResult = await this.mongomodels.Classroom.findByIdAndDelete(id);
-        } else if (name) {
-            // Find and delete by name
-            const classroom = await this.mongomodels.Classroom.findOne({ name });
-            if (!classroom) return { code: 404, error: "Classroom not found" };
+            await this.mongomodels.Classroom.findByIdAndDelete(id);
+            await this.mongomodels.School.findByIdAndUpdate(
+                classroom.school,
+                { $pull: { classrooms: classroom._id } },
+                { new: true }
+            )
 
-            deletionResult = await this.mongomodels.Classroom.deleteOne({ name });
+            return {
+                message: 'Classroom successfully deleted'
+                        };
         } else {
-            return { code: 400, error: "Either 'id' or 'name' must be provided" };
+            return { code: 400, error: "id must be provided" };
         }
 
-        // Response
-        return {
-            message: 'Classroom successfully deleted',
-            result: deletionResult
-        };
     }
 }

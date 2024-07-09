@@ -17,5 +17,6 @@ const ClassroomSchema = new mongoose.Schema({
 }, {
   timestamps: true // Automatically add createdAt and updatedAt fields
 });
+ClassroomSchema.index({ school: 1, name: 1 }, { unique: true });
 
 module.exports = mongoose.model('Classroom', ClassroomSchema);

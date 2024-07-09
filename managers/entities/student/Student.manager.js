@@ -52,7 +52,7 @@ module.exports = class Student {
         if (!id) return { code: 400, error: "Id must be provided" };
 
         // Create the update object
-        const updateFields = {id};
+        const updateFields = { id };
         if (name) updateFields.name = name;
         if (email) updateFields.email = email;
         if (age) updateFields.age = age;
@@ -82,6 +82,18 @@ module.exports = class Student {
 
         // Update Logic
         let updatedStudent = await this.mongomodels.Student.findByIdAndUpdate(id, updateFields, { new: true });
+        if (classroomId != studentInDb.classroom) {
+            await this.mongomodels.Classroom.findByIdAndUpdate(
+                classroomId,
+                { $push: { students: updatedStudent._id } },
+                { new: true, useFindAndModify: false }
+            );
+            await this.mongomodels.Classroom.findByIdAndUpdate(
+                studentInDb.classroom,
+                { $pull: { students: updatedStudent._id } },
+                { new: true, useFindAndModify: false }
+            );
+        }
 
         // Response
         return {
@@ -110,6 +122,13 @@ module.exports = class Student {
             if (!student) return { code: 404, error: "Student not found" };
         } else {
             return { code: 400, error: "Either 'id' or 'name' must be provided" };
+        }
+
+        // Check if the current user is the admin of the school associated with the student's classroom
+        let classroomInDb = await this.mongomodels.Classroom.findById(student.classroom);
+        let schoolInDb = await this.mongomodels.School.findById(classroomInDb.school);
+        if (schoolInDb.admin.toString() !== __token._id.toString()) {
+            return { code: 403, error: "Forbidden, you are not the admin of the school associated with this student" };
         }
 
         // Response
@@ -146,7 +165,6 @@ module.exports = class Student {
         const id = __query.id;
         const email = __query.email;
 
-        let deletionResult;
         if (id) {
             // Find and delete by ID
             const student = await this.mongomodels.Student.findById(id);
@@ -159,7 +177,12 @@ module.exports = class Student {
                 return { code: 403, error: "Forbidden, you are not the admin of the school associated with this student" };
             }
 
-            deletionResult = await this.mongomodels.Student.findByIdAndDelete(id);
+            await this.mongomodels.Student.findByIdAndDelete(id);
+            await this.mongomodels.Classroom.findByIdAndUpdate(
+                student.classroom,
+                { $pull: { students: student._id } },
+                { new: true }
+            )
         } else if (email) {
             // Find and delete by email
             const student = await this.mongomodels.Student.findOne({ email });
@@ -172,15 +195,19 @@ module.exports = class Student {
                 return { code: 403, error: "Forbidden, you are not the admin of the school associated with this student" };
             }
 
-            deletionResult = await this.mongomodels.Student.deleteOne({ email });
+            await this.mongomodels.Student.deleteOne({ email });
+            await this.mongomodels.Classroom.findByIdAndUpdate(
+                student.classroom,
+                { $pull: { students: student._id } },
+                { new: true }
+            )
         } else {
             return { code: 400, error: "Either 'id' or 'email' must be provided" };
         }
 
         // Response
         return {
-            message: 'Student successfully deleted',
-            result: deletionResult
+            message: 'Student successfully deleted'
         };
     }
 }

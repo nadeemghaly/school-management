@@ -31,6 +31,7 @@ module.exports = {
     getClassroom: [
         {
             model: 'id',
+            required: true,
             regex: '^[a-f0-9]{24}$',
             error: "Invalid classroom ID",
         },

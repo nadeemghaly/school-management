@@ -94,16 +94,16 @@ module.exports = class ApiHandler {
         });
 
         /** expose apis through cortex */
-        this.cortex.sub('*', (d, meta, cb) => {
-            let [moduleName, fnName] = meta.event.split('.');
-            let targetModule = this.exposed[moduleName];
-            if (!targetModule) return cb({ error: `module ${moduleName} not found` });
-            try {
-                targetModule.interceptor({ data: d, meta, cb, fnName });
-            } catch (err) {
-                cb({ error: `failed to execute ${fnName}` });
-            }
-        });
+        // this.cortex.sub('*', (d, meta, cb) => {
+        //     let [moduleName, fnName] = meta.event.split('.');
+        //     let targetModule = this.exposed[moduleName];
+        //     if (!targetModule) return cb({ error: `module ${moduleName} not found` });
+        //     try {
+        //         targetModule.interceptor({ data: d, meta, cb, fnName });
+        //     } catch (err) {
+        //         cb({ error: `failed to execute ${fnName}` });
+        //     }
+        // });
         
     }
 

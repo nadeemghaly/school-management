@@ -26,19 +26,19 @@ const oyster     = new Oyster({
 	prefix: config.dotEnv.OYSTER_PREFIX 
 });
 
-const cortex     = new Cortex({
-    prefix: config.dotEnv.CORTEX_PREFIX,
-    url: config.dotEnv.CORTEX_REDIS,
-    type: config.dotEnv.CORTEX_TYPE,
-    state: ()=>{
-        return {} 
-    },
-    activeDelay: "50",
-    idlDelay: "200",
-});
-const aeon = new Aeon({ cortex , timestampFrom: Date.now(), segmantDuration: 500 });
+// const cortex     = new Cortex({
+//     prefix: config.dotEnv.CORTEX_PREFIX,
+//     url: config.dotEnv.CORTEX_REDIS,
+//     type: config.dotEnv.CORTEX_TYPE,
+//     state: ()=>{
+//         return {} 
+//     },
+//     activeDelay: "50",
+//     idlDelay: "200",
+// });
+const aeon = new Aeon({ timestampFrom: Date.now(), segmantDuration: 500 });
 
-const managersLoader = new ManagersLoader({config, cache, cortex, oyster, aeon});
+const managersLoader = new ManagersLoader({config, cache, oyster, aeon});
 const managers = managersLoader.load();
 
 managers.userServer.run();
