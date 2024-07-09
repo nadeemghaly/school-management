@@ -7,9 +7,46 @@ module.exports = class Classroom {
         this.mongomodels = mongomodels;
         this.tokenManager = managers.token;
         this.classroomsCollection = "classrooms";
-        this.httpExposed = ['post=createClassroom', 'put=updateClassroom', 'delete=deleteClassroom', 'get=getClassroom', 'get=getAllClassrooms'];
+        this.httpExposed = ['post=createClassroom', 'patch=updateClassroom', 'delete=deleteClassroom', 'get=getClassroom', 'get=getAllClassrooms'];
     }
-
+/**
+ * @swagger
+ * /classroom/createClassroom:
+ *   post:
+ *     summary: Create a new classroom
+ *     description: Creates a new classroom and associates it with a school.
+ *     tags:
+ *       - Classrooms
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               schoolId:
+ *                 type: string
+ *                 description: ID of the school to which the classroom belongs.
+ *                 example: 60d0fe4f5311236168a109ca
+ *               name:
+ *                 type: string
+ *                 description: Name of the classroom.
+ *                 example: Classroom A
+ *             required:
+ *               - schoolId
+ *               - name
+ *     responses:
+ *       '200':
+ *         description: Successfully created the classroom.
+ *       '400':
+ *         description: Bad request. Validation failed.
+ *       '403':
+ *         description: Forbidden. You are not the admin of this school.
+ *       '404':
+ *         description: School not found.
+ *       '409':
+ *         description: A classroom in the same school with this name already exists.
+ */
     async createClassroom({ __token, schoolId, name }) {
         const classroom = { name, school: schoolId };
 
@@ -45,6 +82,49 @@ module.exports = class Classroom {
         };
     }
 
+    /**
+ * @swagger
+ * /classroom/updateClassroom:
+ *   patch:
+ *     summary: Update an existing classroom
+ *     description: Updates the details of an existing classroom and optionally reassigns it to a different school.
+ *     tags:
+ *       - Classrooms
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the classroom to patch.
+ *         example: 60d0fe4f5311236168a109ca
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: New name for the classroom.
+ *                 example: Classroom B
+ *               schoolId:
+ *                 type: string
+ *                 description: ID of the new school to which the classroom should be reassigned.
+ *                 example: 60d0fe4f5311236168a109cb
+ *     responses:
+ *       '200':
+ *         description: Successfully updated the classroom.
+ *       '400':
+ *         description: Bad request. Validation failed or no fields provided to update.
+ *       '403':
+ *         description: Forbidden. You are not the admin of the school that currently contains this classroom.
+ *       '404':
+ *         description: Classroom or school not found.
+ *       '409':
+ *         description: A classroom in the new school with this name already exists.
+ */
     async updateClassroom({ __token, __query, name, schoolId }) {
         const id = __query.id;
         if (!id) return { code: 400, error: "Id must be provided" };
@@ -89,7 +169,7 @@ module.exports = class Classroom {
                 { $push: { classrooms: updatedClassroom._id } },
                 { new: true, useFindAndModify: false }
             );
-            
+
             await this.mongomodels.School.findByIdAndUpdate(
                 classroomInDb.school,
                 { $pull: { classrooms: updatedClassroom._id } },
@@ -102,7 +182,32 @@ module.exports = class Classroom {
             updatedClassroom
         };
     }
-
+/**
+ * @swagger
+ * /classroom/getClassroom:
+ *   get:
+ *     summary: Retrieve details of a classroom
+ *     description: Fetches the details of a specific classroom by its ID and validates the user's admin status for the associated school.
+ *     tags:
+ *       - Classrooms
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the classroom to retrieve.
+ *         example: 60d0fe4f5311236168a109ca
+ *     responses:
+ *       '200':
+ *         description: Successfully retrieved the classroom details.
+ *       '400':
+ *         description: Bad request. Validation failed.
+ *       '403':
+ *         description: Forbidden. You are not the admin of this school.
+ *       '404':
+ *         description: Classroom not found.
+ */
     async getClassroom({ __token, __query }) {
         const classroomId = __query.id;
 
@@ -138,6 +243,20 @@ module.exports = class Classroom {
         };
     }
 
+    /**
+ * @swagger
+ * /classroom/getAllClassrooms:
+ *   get:
+ *     summary: Get all classrooms
+ *     description: Retrieves a list of all classrooms, including details of the associated school and students.
+ *     tags:
+ *       - Classrooms
+ *     responses:
+ *       '200':
+ *         description: Successfully retrieved all classrooms.
+ *       '500':
+ *         description: Internal server error. An error occurred while fetching the classrooms.
+ */
     async getAllClassrooms({ __token, __isSuperAdmin }) {
         try {
             // Fetch all classrooms
@@ -159,7 +278,32 @@ module.exports = class Classroom {
             return { code: 500, error: 'An error occurred while fetching classrooms' };
         }
     }
-
+/**
+ * @swagger
+ * /classroom/deleteClassroom:
+ *   delete:
+ *     summary: Delete a classroom
+ *     description: Deletes a classroom by its ID. Ensures that the classroom does not have any students before deletion.
+ *     tags:
+ *       - Classrooms
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the classroom to delete.
+ *         example: 60d0fe4f5311236168a109ca
+ *     responses:
+ *       '200':
+ *         description: Successfully deleted the classroom.
+ *       '400':
+ *         description: Bad request. ID must be provided.
+ *       '404':
+ *         description: Classroom not found.
+ *       '409':
+ *         description: Conflict. Classroom has students and cannot be deleted. Remove students first.
+ */
     async deleteClassroom({ __token, __query }) {
         const id = __query.id;
 

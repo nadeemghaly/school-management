@@ -7,9 +7,57 @@ module.exports = class Student {
         this.mongomodels = mongomodels;
         this.tokenManager = managers.token;
         this.studentsCollection = "students";
-        this.httpExposed = ['post=createStudent', 'put=updateStudent', 'delete=deleteStudent', 'get=getStudent', 'get=getAllStudents'];
+        this.httpExposed = ['post=createStudent', 'patch=updateStudent', 'delete=deleteStudent', 'get=getStudent', 'get=getAllStudents'];
     }
 
+/**
+ * @swagger
+ * /student/createStudent:
+ *   post:
+ *     summary: Create a new student
+ *     description: Creates a new student and associates them with a classroom. Ensures that the user is the admin of the school associated with the classroom.
+ *     tags:
+ *       - Students
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               classroomId:
+ *                 type: string
+ *                 description: ID of the classroom to associate the student with.
+ *                 example: 60d0fe4f5311236168a109cb
+ *               name:
+ *                 type: string
+ *                 description: Name of the student.
+ *                 example: John Doe
+ *               email:
+ *                 type: string
+ *                 description: Email address of the student.
+ *                 example: john.doe@example.com
+ *               age:
+ *                 type: integer
+ *                 description: Age of the student.
+ *                 example: 15
+ *             required:
+ *               - classroomId
+ *               - name
+ *               - email
+ *               - age
+ *     responses:
+ *       '200':
+ *         description: Successfully created the student and associated them with the classroom.
+ *       '400':
+ *         description: Bad request. Validation failed or required fields are missing.
+ *       '403':
+ *         description: Forbidden. The user is not the admin of the school associated with the classroom.
+ *       '404':
+ *         description: Classroom not found.
+ *       '409':
+ *         description: Conflict. A student with this email already exists.
+ */
     async createStudent({ __token, classroomId, name, email, age }) {
         const student = { name, age, email, classroom: classroomId };
 
@@ -46,7 +94,57 @@ module.exports = class Student {
             createdStudent
         };
     }
-
+/**
+ * @swagger
+ * /student/updateStudent:
+ *   patch:
+ *     summary: Update an existing student
+ *     description: Updates a student's details and reassigns them to a new classroom if specified. Ensures that the user is the admin of the school associated with the student's classroom.
+ *     tags:
+ *       - Students
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the student to be updated.
+ *         example: 60d0fe4f5311236168a109cb
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Updated name of the student.
+ *                 example: Jane Doe
+ *               email:
+ *                 type: string
+ *                 description: Updated email address of the student.
+ *                 example: jane.doe@example.com
+ *               age:
+ *                 type: integer
+ *                 description: Updated age of the student.
+ *                 example: 16
+ *               classroomId:
+ *                 type: string
+ *                 description: ID of the new classroom to associate the student with.
+ *                 example: 60d0fe4f5311236168a109cb
+ *     responses:
+ *       '200':
+ *         description: Successfully updated the student.
+ *       '400':
+ *         description: Bad request. Validation failed or required fields are missing.
+ *       '403':
+ *         description: Forbidden. The user is not the admin of the school associated with this student.
+ *       '404':
+ *         description: Student or classroom not found.
+ *       '409':
+ *         description: Conflict. A student with this email already exists.
+ */
     async updateStudent({ __token, __query, name, email, age, classroomId }) {
         const id = __query.id;
         if (!id) return { code: 400, error: "Id must be provided" };
@@ -80,6 +178,9 @@ module.exports = class Student {
             return { code: 403, error: "Forbidden, you are not the admin of the school associated with this student" };
         }
 
+        const newClassroomInDb = await this.mongomodels.Classroom.findById(classroomId);
+        if (!newClassroomInDb) return { code: 404, error: "Classroom not found" };
+
         // Update Logic
         let updatedStudent = await this.mongomodels.Student.findByIdAndUpdate(id, updateFields, { new: true });
         if (classroomId != studentInDb.classroom) {
@@ -101,6 +202,37 @@ module.exports = class Student {
         };
     }
 
+    /**
+ * @swagger
+ * /student/getStudent:
+ *   get:
+ *     summary: Retrieve a student's details
+ *     description: Fetches details of a student by ID or email. Ensures that the user is the admin of the school associated with the student's classroom.
+ *     tags:
+ *       - Students
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         description: ID of the student to be retrieved. If not provided, the `email` is required.
+ *         example: 60d0fe4f5311236168a109cb
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *         description: Email address of the student to be retrieved. If not provided, the `id` is required.
+ *         example: example@gmail.com
+ *     responses:
+ *       '200':
+ *         description: Successfully retrieved the student's details.
+ *       '400':
+ *         description: Bad request. Validation failed or required fields are missing.
+ *       '403':
+ *         description: Forbidden. The user is not the admin of the school associated with this student.
+ *       '404':
+ *         description: Student not found.
+ */
     async getStudent({ __token, __query }) {
         const id = __query.id;
         const email = __query.email;
@@ -137,6 +269,20 @@ module.exports = class Student {
         };
     }
 
+    /**
+ * @swagger
+ * /student/getAllStudents:
+ *   get:
+ *     summary: Retrieve all students
+ *     description: Fetches a list of all students, including their associated classroom and school details.
+ *     tags:
+ *       - Students
+ *     responses:
+ *       '200':
+ *         description: Successfully retrieved the list of students.
+ *       '500':
+ *         description: Internal server error. An error occurred while fetching students.
+ */
     async getAllStudents({ __token, __isSuperAdmin }) {
         try {
             // Fetch all students
@@ -161,6 +307,39 @@ module.exports = class Student {
         }
     }
 
+    /**
+ * @swagger
+ * /student/deleteStudent:
+ *   delete:
+ *     summary: Delete a student
+ *     description: Deletes a student by either ID or email. Requires that the current user is the admin of the school associated with the student's classroom.
+ *     tags:
+ *       - Students
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         description: ID of the student to delete. (Required if `email` is not provided)
+ *         example: 60d0fe4f5311236168a109cb
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *         description: Email of the student to delete. (Required if `id` is not provided)
+ *         example: example@gmail.com
+ *     responses:
+ *       '200':
+ *         description: Successfully deleted the student.
+ *       '400':
+ *         description: Bad request. Either 'id' or 'email' must be provided.
+ *       '403':
+ *         description: Forbidden. User is not the admin of the school associated with the student.
+ *       '404':
+ *         description: Student not found.
+ *       '500':
+ *         description: Internal server error. An error occurred while deleting the student.=
+ */
     async deleteStudent({ __token, __query }) {
         const id = __query.id;
         const email = __query.email;
