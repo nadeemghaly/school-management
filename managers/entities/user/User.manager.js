@@ -61,7 +61,7 @@ module.exports = class User {
 
         // Data validation
         console.log(this.validators)
-        let validationResult = await this.validators.User.createUser(user);
+        let validationResult = await this.validators.user.createUser(user);
         if (validationResult) return { code: 400, error: validationResult };
 
         let userInDB = await this.mongomodels.User.findOne({ email });
@@ -118,7 +118,7 @@ module.exports = class User {
     async login({ email, password }) {
     const loginCredentials = { email, password };
     
-    let validationResult = await this.validators.User.login(loginCredentials);
+    let validationResult = await this.validators.user.login(loginCredentials);
     if (validationResult) return { code: 400, error: validationResult };
 
     let userInDB = await this.mongomodels.User.findOne({ email });
