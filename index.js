@@ -1,7 +1,5 @@
 const config                = require('./config/index.config.js');
-const Cortex                = require('ion-cortex');
 const ManagersLoader        = require('./loaders/ManagersLoader.js');
-const Aeon                  = require('aeon-machine');
 
 process.on('uncaughtException', err => {
     console.log(`Uncaught Exception:`)
@@ -15,16 +13,16 @@ process.on('unhandledRejection', (reason, promise) => {
     process.exit(1)
 })
 
-const cache      = require('./cache/cache.dbh')({
-    prefix: config.dotEnv.CACHE_PREFIX ,
-    url: config.dotEnv.CACHE_REDIS
-});
+// const cache      = require('./cache/cache.dbh')({
+//     prefix: config.dotEnv.CACHE_PREFIX ,
+//     url: config.dotEnv.CACHE_REDIS
+// });
 
-const Oyster  = require('oyster-db');
-const oyster     = new Oyster({ 
-    url: config.dotEnv.OYSTER_REDIS, 
-	prefix: config.dotEnv.OYSTER_PREFIX 
-});
+// const Oyster  = require('oyster-db');
+// const oyster     = new Oyster({ 
+//     url: config.dotEnv.OYSTER_REDIS, 
+// 	prefix: config.dotEnv.OYSTER_PREFIX 
+// });
 
 // const cortex     = new Cortex({
 //     prefix: config.dotEnv.CORTEX_PREFIX,
@@ -36,9 +34,8 @@ const oyster     = new Oyster({
 //     activeDelay: "50",
 //     idlDelay: "200",
 // });
-const aeon = new Aeon({ timestampFrom: Date.now(), segmantDuration: 500 });
 
-const managersLoader = new ManagersLoader({config, cache, oyster, aeon});
+const managersLoader = new ManagersLoader({config});
 const managers = managersLoader.load();
 
 managers.userServer.run();

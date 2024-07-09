@@ -19,7 +19,7 @@ const Student = require('../managers/entities/student/Student.manager');
  * @return modules tree with instance of each module
 */
 module.exports = class ManagersLoader {
-    constructor({ config, cortex, cache, oyster, aeon }) {
+    constructor({ config, cortex, cache, oyster }) {
 
         this.managers   = {};
         this.config     = config;
@@ -33,7 +33,6 @@ module.exports = class ManagersLoader {
             config,
             cortex,
             oyster,
-            aeon,
             managers: this.managers, 
             validators: this.validators,
             mongomodels: this.mongomodels,
